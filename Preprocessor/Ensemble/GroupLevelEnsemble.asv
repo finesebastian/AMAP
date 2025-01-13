@@ -1,0 +1,334 @@
+%% Generates Collective Movement Ensembles
+
+classdef GroupLevelEnsemble
+    methods (Static)
+        function groupLevelEnsemble(vergence_type)
+
+            
+            % Subject Type and Timing Selection
+            list = {'CI Baseline','CI Outcome','Control Baseline','Control Outcome'};
+            [indx, ~] = listdlg('PromptString',{'Select Group Level Ensemble'},'SelectionMode','single','ListString',list);
+
+            if(~isempty(indx))
+                % Movement Type Selection
+                movement_type_list = {'BDP1','BLUR','PROX','CENT_DISP','PER_DISP','BLUR_PROX','BLUR_DISP','DISP_PROX','BDP2'};
+                [type_index, ~] = listdlg('PromptString',{'Select Movement Section'},'SelectionMode','single','ListString',movement_type_list);
+                
+                if(~isempty(type_index))
+                    % Therapy Type
+                    therapyList = {'ACTIVE','PLACEBO'};
+                    [therapy_type_index, ~] = listdlg('PromptString',{'Select Therapy'},'SelectionMode','single','ListString',therapyList);
+    
+                    therapySelection = therapyList{therapy_type_index};
+        
+                    if(~isempty(therapy_type_index))
+                        switch indx
+                            case 1
+                                % CI Baseline Pathway
+                                directory_path = fullfile('C:/AMAP_Output/EnsemblePlotData/CI/',therapySelection,'Baseline_Data',vergence_type,movement_type_list{type_index});
+                                subject_type_timing = strjoin({'CI',therapySelection,'Baseline'},'_');
+                                errorBar_ColorSelection = uint8([170 170 220]);
+                                trace_ColorSelection = uint8([5, 26, 252]);
+                                
+                            case 2
+                                % CI Outcome Pathway
+                                directory_path = fullfile('C:/AMAP_Output/EnsemblePlotData/CI/',therapySelection,'Outcome_Data',vergence_type,movement_type_list{type_index});
+                                subject_type_timing = strjoin({'CI',therapySelection,'Outcome'},'_');
+                                errorBar_ColorSelection = uint8([255 87 51]);
+                                trace_ColorSelection = uint8([209, 33, 19]);
+                                
+                            case 3
+                                % Control Baseline Pathway
+                                directory_path = fullfile('C:/AMAP_Output/EnsemblePlotData/CONTROL/',therapySelection,'Baseline_Data',vergence_type,movement_type_list{type_index});
+                                subject_type_timing = strjoin({'Control',therapySelection,'Baseline'},'_');
+                                errorBar_ColorSelection = uint8([170 170 220]);
+                                trace_ColorSelection = uint8([5, 26, 252]);
+                                
+                            case 4
+                                % Control Outcome Pathway
+                                directory_path = fullfile('C:/AMAP_Output/EnsemblePlotData/CONTROL/',therapySelection,'Outcome_Data',vergence_type,movement_type_list{type_index});
+                                subject_type_timing = strjoin({'Control',therapySelection,'Outcome'},'_');
+                                errorBar_ColorSelection = uint8([255 87 51]);
+                                trace_ColorSelection = uint8([209, 33, 19]);
+                        end
+            
+                        % Locate Directory
+                        list_of_directories = dir(directory_path);
+
+                        % Refraction (1,1) Refraction Velocity (1,2)
+                        % Position Bounds (1,3) Velocity Bounds (1,4)
+                        % Gaze (2,1) Gaze Velocity (2,2)
+                        % Position Bounds (2,3) Velocity Bounds (2,4)
+                        % (1,5) Ref Deviation Data, (1,6) Velocity Dev
+                        % (2,5) Gaze Deviation Data, (2,6) Velocity Dev
+                        temp_graphic_storage = cell(2,6);
+                 
+                        for subDirectories = 1:size(list_of_directories,1)
+                            % Default Graphing Values
+                            % Velocity/Position
+                            axis_ratio_vergence = 5;
+                            axis_ratio_refraction = 4;
+                        
+                            % Default Refraction
+                            y_ref_lower_bound = -.5;
+                            y_ref_upper_bound = 2.5;
+                        
+                            % Default Type Convergence
+                            y_ver_lower_bound = -1;
+                            y_ver_upper_bound = 6;
+
+                            if(~isfolder(list_of_directories(subDirectories).name))
+                                subDatadirectory = dir(fullfile(directory_path,list_of_directories(subDirectories).name));
+                                figure_number_count = 0;
+                                for figureIndex = 1:size(subDatadirectory,1)
+                                    if (~isfolder(subDatadirectory(figureIndex).name))
+                                        figure_number_count = figure_number_count +1;
+                                        currentFigure = load(strcat(directory_path,'\',list_of_directories(subDirectories).name,'\',subDatadirectory(figureIndex).name),'-mat');
+                                        figure_y_data(:,figure_number_count) = currentFigure.hgS_070000.children.children.properties.YData;
+                            
+                                    end
+                                end
+                        
+                            time_vector = [0:1/50:(size(figure_y_data,1)-1)/50];
+                            mean_y_data_trace = mean(figure_y_data,2,'omitnan');
+                            std_y_data_trace = std(figure_y_data,0,2,'omitnan');
+            
+                            % Generate Two Plots Mean and Deviation
+                            group_level_figure = figure("Name",list_of_directories(subDirectories).name,Visible="off");
+                            group_level_figure_dev = figure("Name",strcat(list_of_directories(subDirectories).name," Deviation"),Visible="off");
+                            group_level_figure_axes = axes(group_level_figure);
+                            group_level_figure_dev_axes = axes(group_level_figure_dev);
+            
+                            % Mean Plot
+                            plot(group_level_figure_axes,time_vector,mean_y_data_trace,'LineWidth',2.5,'Color',trace_ColorSelection);
+            
+                            % Deviation Plot
+                            x = time_vector';
+                            y = mean_y_data_trace;
+                            dy = std_y_data_trace;
+                        
+                            set(group_level_figure_dev_axes,'color','none')
+                            set(group_level_figure_dev,'color','none')
+                            fill(group_level_figure_dev_axes,[x;flipud(x)],[y-dy;flipud(y+dy)],errorBar_ColorSelection, 'linestyle','none', 'FaceAlpha', 0.25,'EdgeColor','none');
+                            line(group_level_figure_dev_axes,x,y,'Color',trace_ColorSelection,'LineWidth',2.5,'LineStyle','-')
+                            
+            
+                                if strcmp(vergence_type,'Div')
+                                    % Gaze
+                                    temp_lower = y_ver_lower_bound;
+                                    y_ver_upper_bound = -1*y_ver_upper_bound;
+                                    y_ver_lower_bound = -1*temp_lower;
+                        
+                                    % Refraction
+                                    temp_lower = y_ref_lower_bound;
+                                    y_ref_upper_bound = -1*y_ref_upper_bound;
+                                    y_ref_lower_bound = -1*temp_lower;
+                                end
+                            
+                                if contains(list_of_directories(subDirectories).name,'Gaze_Velocity')
+                                    % Shimmy Some Data 
+                                    temp_graphic_storage{2,2} = mean_y_data_trace;
+                                    temp_graphic_storage{2,6} = dy;
+
+                                    if strcmp(vergence_type,'Div')
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_upper_bound*axis_ratio_vergence, y_ver_lower_bound*axis_ratio_vergence])
+                
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_upper_bound*axis_ratio_vergence, y_ver_lower_bound*axis_ratio_vergence])
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{2,4} = [(y_ver_upper_bound*axis_ratio_vergence), (y_ver_lower_bound*axis_ratio_vergence)];
+                                    else
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_lower_bound*axis_ratio_vergence, y_ver_upper_bound*axis_ratio_vergence])
+                
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_lower_bound*axis_ratio_vergence, y_ver_upper_bound*axis_ratio_vergence])
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{2,4} = [(y_ver_lower_bound*axis_ratio_vergence), (y_ver_upper_bound*axis_ratio_vergence)];
+                                    end
+                                elseif contains(list_of_directories(subDirectories).name,'Gaze')
+                                    % Shimmy Some Data 
+                                    temp_graphic_storage{2,1} = mean_y_data_trace;
+                                    temp_graphic_storage{2,5} = dy;
+
+                                    if strcmp(vergence_type,'Div')
+                                        yyaxis(group_level_figure.CurrentAxes,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_upper_bound, y_ver_lower_bound]);
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{2,3} = [y_ver_upper_bound, y_ver_lower_bound];
+                                    else
+                                        yyaxis(group_level_figure.CurrentAxes,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure.CurrentAxes,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ver_lower_bound,y_ver_upper_bound]);
+
+                                         % Pocket the Bounds
+                                        temp_graphic_storage{2,3} = [y_ver_lower_bound,y_ver_upper_bound];
+            
+                                    end
+                                elseif contains(list_of_directories(subDirectories).name,'Refraction_Velocity')
+                                    % Shimmy Some Data 
+                                    temp_graphic_storage{1,2} = mean_y_data_trace;
+                                    temp_graphic_storage{1,6} = dy;
+
+                                    if strcmp(vergence_type,'Div')
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes ,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_upper_bound*axis_ratio_refraction, y_ref_lower_bound*axis_ratio_refraction])
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes ,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_upper_bound*axis_ratio_refraction, y_ref_lower_bound*axis_ratio_refraction])
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{1,4} = [(y_ref_upper_bound*axis_ratio_refraction), (y_ref_lower_bound*axis_ratio_refraction)];
+                                    else
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes ,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_lower_bound*axis_ratio_refraction, y_ref_upper_bound*axis_ratio_refraction])
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes ,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_lower_bound*axis_ratio_refraction, y_ref_upper_bound*axis_ratio_refraction])
+                                        
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{1,4} = [(y_ref_lower_bound*axis_ratio_refraction), (y_ref_upper_bound*axis_ratio_refraction)];
+
+                                    end
+                                else
+                                    % Shimmy Some Data 
+                                    temp_graphic_storage{1,1} = mean_y_data_trace;
+                                    temp_graphic_storage{1,5} = dy;
+
+                                    if strcmp(vergence_type,'Div')
+                                        yyaxis(group_level_figure.CurrentAxes ,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes ,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_upper_bound, y_ref_lower_bound]);
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{1,3} = [y_ref_upper_bound, y_ref_lower_bound];
+
+                                    else
+                                        yyaxis(group_level_figure.CurrentAxes ,'left')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+                                        yyaxis(group_level_figure.CurrentAxes,'right')
+                                        ylim(group_level_figure.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+            
+                                        % Deviation Plot
+                                        yyaxis(group_level_figure_dev.CurrentAxes ,'left')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+                                        yyaxis(group_level_figure_dev.CurrentAxes,'right')
+                                        ylim(group_level_figure_dev.CurrentAxes,[y_ref_lower_bound,y_ref_upper_bound]);
+
+                                        % Pocket the Bounds
+                                        temp_graphic_storage{1,3} = [y_ref_lower_bound,y_ref_upper_bound];
+                                    end
+                                end
+            
+                                mkdir(fullfile('C:/AMAP_Output/','GroupLevelFigures',subject_type_timing,vergence_type,movement_type_list{type_index}))
+                                addpath(genpath('GroupLevelFigures'));
+                                exportgraphics(group_level_figure,strcat(fullfile('C:/AMAP_Output/','GroupLevelFigures',subject_type_timing,vergence_type,movement_type_list{type_index}), ...
+                                    '\',list_of_directories(subDirectories).name,'_',movement_type_list{type_index},'_',vergence_type,'_',subject_type_timing,'.emf'),'BackgroundColor','none')
+                                exportgraphics(group_level_figure_dev,strcat(fullfile('C:/AMAP_Output/','GroupLevelFigures',subject_type_timing,vergence_type,movement_type_list{type_index}), ...
+                                    '\',list_of_directories(subDirectories).name,'_',movement_type_list{type_index},'_',vergence_type,'_',subject_type_timing,'_Deviation','.emf'),'BackgroundColor','none')
+                            end
+                        end
+                        % Make the Combined Plots
+
+                        % Generate Two Plots Combined Refraction and
+                        % Combined Gaze
+                        combined_ref_figure = figure("Name","Combined Refraction",Visible="off");
+                        combined_gaze_figure = figure("Name","Combined Gaze",Visible="off");
+                        refraction_figure_axes = axes(combined_ref_figure);
+                        gaze_figure_axes = axes(combined_gaze_figure);
+        
+                        % Combined Ref Plot
+                        % Set Axes
+                        yyaxis(combined_ref_figure.CurrentAxes,'right')
+                        ylim(combined_ref_figure.CurrentAxes,[temp_graphic_storage{1,3}]);
+                        %plot(refraction_figure_axes,time_vector,temp_graphic_storage{1,1},'LineWidth',2.5,'Color',trace_ColorSelection);
+                        set(refraction_figure_axes,'color','none')
+                        set(combined_ref_figure,'color','none')
+                        fill(refraction_figure_axes,[x;flipud(x)],[temp_graphic_storage{1,1}-temp_graphic_storage{1,5};flipud(temp_graphic_storage{1,1}+temp_graphic_storage{1,5})],errorBar_ColorSelection, 'linestyle','none', 'FaceAlpha', 0.25,'EdgeColor','none','HandleVisibility','off');
+                        line(refraction_figure_axes,x,temp_graphic_storage{1,1},'Color',trace_ColorSelection,'LineWidth',2.5,'LineStyle','-')
+                        hold(refraction_figure_axes,"on");
+                        yyaxis(combined_ref_figure.CurrentAxes ,'left')
+                        ylim(combined_ref_figure.CurrentAxes,[temp_graphic_storage{1,4}]);
+                        %plot(refraction_figure_axes,time_vector,temp_graphic_storage{1,2},'LineWidth',2.5,'Color',trace_ColorSelection);
+                        fill(refraction_figure_axes,[x;flipud(x)],[temp_graphic_storage{1,2}-temp_graphic_storage{1,6};flipud(temp_graphic_storage{1,2}+temp_graphic_storage{1,6})],[0, 0, 0], 'linestyle','none', 'FaceAlpha', 0.25,'EdgeColor','none','HandleVisibility','off');
+                        line(refraction_figure_axes,x,temp_graphic_storage{1,2},'Color',[0, 0, 0],'LineWidth',2.5,'LineStyle',':')
+                        hold(refraction_figure_axes,"off");
+                        legend(refraction_figure_axes,{'Velocity (Diopters/Sec)','Position (Diopters)'},'Location','northwest')
+
+
+                        % Combined Gaze Plot
+                        % Set Axes
+                        yyaxis(combined_gaze_figure.CurrentAxes ,'right')
+                        ylim(combined_gaze_figure.CurrentAxes,[temp_graphic_storage{2,3}]);
+                        %plot(gaze_figure_axes,time_vector,temp_graphic_storage{2,1},'LineWidth',2.5,'Color',trace_ColorSelection);
+                        set(gaze_figure_axes,'color','none')
+                        set(combined_gaze_figure,'color','none')
+                        fill(gaze_figure_axes,[x;flipud(x)],[temp_graphic_storage{2,1}-temp_graphic_storage{2,5};flipud(temp_graphic_storage{2,1}+temp_graphic_storage{2,5})],errorBar_ColorSelection, 'linestyle','none', 'FaceAlpha', 0.25,'EdgeColor','none','HandleVisibility','off');
+                        line(gaze_figure_axes,x,temp_graphic_storage{2,1},'Color',trace_ColorSelection,'LineWidth',2.5,'LineStyle','-')
+                        hold(gaze_figure_axes,"on");
+                        yyaxis(combined_gaze_figure.CurrentAxes,'left')
+                        ylim(combined_gaze_figure.CurrentAxes,[temp_graphic_storage{2,4}]);
+                        %plot(gaze_figure_axes,time_vector,temp_graphic_storage{2,2},'LineWidth',2.5,'Color',trace_ColorSelection);
+                        fill(gaze_figure_axes,[x;flipud(x)],[temp_graphic_storage{2,2}-temp_graphic_storage{2,6};flipud(temp_graphic_storage{2,2}+temp_graphic_storage{2,6})],'Color',[0, 0, 0], 'linestyle','none', 'FaceAlpha', 0.25,'EdgeColor','none','HandleVisibility','off');
+                        line(gaze_figure_axes,x,temp_graphic_storage{2,2},'Color',[0, 0, 0],'LineWidth',2.5,'LineStyle',':')
+                        hold(gaze_figure_axes,"off");
+                        legend(gaze_figure_axes,{'Velocity (Degs/Sec)','Position (Degrees)'},'Location','northwest')
+
+                        exportgraphics(combined_ref_figure,strcat(fullfile('C:/AMAP_Output/','GroupLevelFigures',subject_type_timing,vergence_type,movement_type_list{type_index}), ...
+                            '\','CombinedRefraction','_',movement_type_list{type_index},'_',vergence_type,'_',subject_type_timing,'_CombinedRefractionGraphic','.emf'),'BackgroundColor','none')
+                        exportgraphics(combined_gaze_figure,strcat(fullfile('C:/AMAP_Output/','GroupLevelFigures',subject_type_timing,vergence_type,movement_type_list{type_index}), ...
+                            '\','CombinedGaze','_',movement_type_list{type_index},'_',vergence_type,'_',subject_type_timing,'_CombinedGazeGraphic','.emf'),'BackgroundColor','none')
+
+
+                    end
+                end
+            end
+        end
+    end
+end
